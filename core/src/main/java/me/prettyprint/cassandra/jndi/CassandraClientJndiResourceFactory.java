@@ -68,7 +68,7 @@ public class CassandraClientJndiResourceFactory implements ObjectFactory {
    *                        to create an object, and no other object factories are to be tried.
    */
   public Object getObjectInstance(Object object, Name jndiName, Context context,
-      Hashtable<?, ?> environment) throws Exception {  
+      Hashtable<?, ?> environment) throws Exception {
     Reference resourceRef = null;
     
     if (object instanceof Reference) {
@@ -76,7 +76,7 @@ public class CassandraClientJndiResourceFactory implements ObjectFactory {
     } else {
       throw new Exception("Object provided is not a javax.naming.Reference type");
     }
-    
+
     // config CassandraHostConfigurator  
     if ( cluster == null ) {
       configure(resourceRef);
@@ -86,16 +86,26 @@ public class CassandraClientJndiResourceFactory implements ObjectFactory {
   }
   
   private void configure(Reference resourceRef) throws Exception {
- // required
+    // required
     RefAddr hostsRefAddr = resourceRef.get("hosts");
     RefAddr clusterNameRef = resourceRef.get("clusterName");
     RefAddr keyspaceNameRef = resourceRef.get("keyspace");
     // optional
     RefAddr maxActiveRefAddr = resourceRef.get("maxActive");
     RefAddr maxWaitTimeWhenExhausted = resourceRef.get("maxWaitTimeWhenExhausted");
+    RefAddr lifo = resourceRef.get("lifo");
+    RefAddr useThriftFramedTransport = resourceRef.get("useThriftFramedTransport");
+    RefAddr maxFrameSize = resourceRef.get("maxFrameSize");
+    RefAddr useSocketKeepalive = resourceRef.get("useSocketKeepalive");
+    RefAddr maxConnectTimeMillis = resourceRef.get("maxConnectTimeMillis");
+    RefAddr maxLastSuccessTimeMillis = resourceRef.get("maxLastSuccessTimeMillis");
+    RefAddr cassandraThriftSocketTimeout = resourceRef.get("cassandraThriftSocketTimeout");
+
     RefAddr autoDiscoverHosts = resourceRef.get("autoDiscoverHosts");
+    RefAddr autoDiscoveryDelayInSeconds = resourceRef.get("autoDiscoveryDelayInSeconds");
     RefAddr runAutoDiscoverAtStartup = resourceRef.get("runAutoDiscoveryAtStartup");
     RefAddr retryDownedHostDelayInSeconds = resourceRef.get("retryDownedHostDelayInSeconds");
+    RefAddr retryDownedHostsQueueSize = resourceRef.get("retryDownedHostsQueueSize");
     RefAddr useHostTimeoutTracker = resourceRef.get("useHostTimeoutTracker");
     RefAddr hostTimeoutCounter = resourceRef.get("hostTimeoutCounter");
     RefAddr hostTimeoutSuspensionDurationInSeconds = resourceRef.get("hostTimeoutSuspensionDurationInSeconds");
@@ -112,6 +122,8 @@ public class CassandraClientJndiResourceFactory implements ObjectFactory {
       cassandraHostConfigurator.setAutoDiscoverHosts(Boolean.parseBoolean((String)autoDiscoverHosts.getContent()));
       if ( runAutoDiscoverAtStartup  != null )
         cassandraHostConfigurator.setRunAutoDiscoveryAtStartup(Boolean.parseBoolean((String)autoDiscoverHosts.getContent()));
+      if (autoDiscoveryDelayInSeconds != null)
+        cassandraHostConfigurator.setAutoDiscoveryDelayInSeconds(Integer.parseInt((String)autoDiscoveryDelayInSeconds.getContent()));
     }
     if ( useHostTimeoutTracker != null ) {
       cassandraHostConfigurator.setUseHostTimeoutTracker(Boolean.parseBoolean((String)useHostTimeoutTracker.getContent()));
@@ -128,21 +140,39 @@ public class CassandraClientJndiResourceFactory implements ObjectFactory {
         cassandraHostConfigurator.setHostTimeoutWindow(Integer.parseInt((String)hostTimeoutWindow.getContent()));
       }
     }
+
     if ( retryDownedHostDelayInSeconds != null ) {
       int retryDelay = Integer.parseInt((String)retryDownedHostDelayInSeconds.getContent());
       // disable retry if less than 1
       if ( retryDelay < 1 )
         cassandraHostConfigurator.setRetryDownedHosts(false);      
       cassandraHostConfigurator.setRetryDownedHostsDelayInSeconds(retryDelay);
+      if (retryDownedHostsQueueSize != null) {
+        cassandraHostConfigurator.setRetryDownedHostsQueueSize(Integer.parseInt((String)retryDownedHostsQueueSize.getContent()));
+      }
     }
     if ( maxActiveRefAddr != null ) 
       cassandraHostConfigurator.setMaxActive(Integer.parseInt((String)maxActiveRefAddr.getContent()));
     if ( maxWaitTimeWhenExhausted != null ) 
       cassandraHostConfigurator.setMaxWaitTimeWhenExhausted(Integer.parseInt((String)maxWaitTimeWhenExhausted.getContent()));
+    if (lifo != null)
+      cassandraHostConfigurator.setLifo(Boolean.parseBoolean((String)lifo.getContent()));
+    if (useThriftFramedTransport != null)
+      cassandraHostConfigurator.setUseThriftFramedTransport(Boolean.parseBoolean((String)useThriftFramedTransport.getContent()));
+    if (maxFrameSize != null)
+      cassandraHostConfigurator.setMaxFrameSize(Integer.parseInt((String)maxFrameSize.getContent()));
+    if (useSocketKeepalive != null)
+      cassandraHostConfigurator.setUseSocketKeepalive(Boolean.parseBoolean((String)useSocketKeepalive.getContent()));
+    if (maxConnectTimeMillis != null)
+      cassandraHostConfigurator.setMaxConnectTimeMillis(Long.parseLong((String)maxConnectTimeMillis.getContent()));
+    if (maxLastSuccessTimeMillis != null)
+      cassandraHostConfigurator.setMaxLastSuccessTimeMillis(Long.parseLong((String)maxLastSuccessTimeMillis.getContent()));
+    if (cassandraThriftSocketTimeout != null)
+      cassandraHostConfigurator.setCassandraThriftSocketTimeout(Integer.parseInt((String)cassandraThriftSocketTimeout.getContent()));
     
-    if ( log.isDebugEnabled() )
-      log.debug("JNDI resource created with CassandraHostConfiguration: {}", cassandraHostConfigurator.getAutoDiscoverHosts());
     
+    log.info("JNDI resource created with CassandraHostConfiguration: {}", cassandraHostConfigurator.toString());
+
     cluster = HFactory.getOrCreateCluster((String)clusterNameRef.getContent(), cassandraHostConfigurator);
     keyspace = HFactory.createKeyspace((String)keyspaceNameRef.getContent(), cluster);
   }
